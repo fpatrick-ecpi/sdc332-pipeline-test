@@ -19,6 +19,3 @@ def test_settings_by_app_env():
     assert load_settings("production")["APP_MODE"] == "production"
     assert load_settings("")["APP_MODE"] == "default"
 
-
-def test_deliberate_failure_first_push():
-    assert False, "first push fails on purpose to test the deliver skip line"

@@ -1,0 +1,52 @@
+name: permtest
+# Test only: what a pull from GHCR needs.
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+  IMAGE_TAG: ${{ inputs.image_tag }}
+jobs:
+  no-login:
+    runs-on: ubuntu-latest
+    steps:
+      - run: docker pull "$IMAGE:$IMAGE_TAG"
+  login-contents-read-only:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull "$IMAGE:$IMAGE_TAG"
+  login-packages-read:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull "$IMAGE:$IMAGE_TAG"
+  push-with-packages-read:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull "$IMAGE:$IMAGE_TAG"
+          docker tag "$IMAGE:$IMAGE_TAG" "$IMAGE:permtest-should-fail"
+          docker push "$IMAGE:permtest-should-fail"

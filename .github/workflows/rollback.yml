@@ -1,0 +1,30 @@
+name: rollback
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag (commit ID) to redeploy to production"
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+      IMAGE_TAG: ${{ inputs.image_tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Pull and run the chosen tag with APP_ENV=production
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker run -d -p 8000:8000 -e APP_ENV=production "$IMAGE:$IMAGE_TAG"
+      - run: ./scripts/smoke.sh
+      - run: echo "rolled back production to $IMAGE_TAG"

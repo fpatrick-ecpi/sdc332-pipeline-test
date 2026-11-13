@@ -1,0 +1,7 @@
+.git
+.github
+practice
+samples
+answers
+*.tar.gz
+__pycache__

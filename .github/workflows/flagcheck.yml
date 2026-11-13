@@ -1,0 +1,63 @@
+name: flagcheck
+# Test only: the course's Trivy and ShellCheck commands, exit codes recorded.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  trivy-flags:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install Trivy (pinned)
+        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+        with:
+          version: v0.76.1
+          cache: false
+      - name: A. fs vuln with --skip-db-update on a fresh runner (no DB yet)
+        continue-on-error: true
+        run: trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --skip-db-update --skip-check-update samples/worked/
+      - name: B. fs vuln,misconfig without skip flags (downloads DB)
+        continue-on-error: true
+        run: trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 samples/worked/
+      - name: C. same with --skip-db-update --skip-check-update now the DB exists
+        continue-on-error: true
+        run: trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --ignore-unfixed --skip-db-update --skip-check-update --exit-code 1 samples/worked/
+      - name: D. trivy config on the worked Dockerfile
+        continue-on-error: true
+        run: trivy config --skip-db-update --skip-check-update --exit-code 1 samples/worked/Dockerfile
+      - name: D2. trivy config on the worked folder
+        continue-on-error: true
+        run: trivy config --skip-check-update --exit-code 1 samples/worked/
+      - name: E. fs with a .trivyignore listing the found IDs
+        continue-on-error: true
+        run: |
+          trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --skip-db-update --format json -q samples/worked/ > out.json
+          jq -r '.Results[]?.Vulnerabilities[]?.VulnerabilityID' out.json | sort -u > ids.txt
+          echo "IDs found:"; cat ids.txt
+          { echo "# added 2026-11-12, test of the course rule"; cat ids.txt; } > /tmp/ignorefile
+          trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --skip-db-update --skip-check-update --ignorefile /tmp/ignorefile --exit-code 1 samples/worked/
+      - name: F. repository gate with skip-dirs practice
+        continue-on-error: true
+        run: trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --ignore-unfixed --skip-db-update --skip-check-update --skip-dirs practice --skip-dirs samples --exit-code 1 .
+      - name: G. same without skipping practice
+        continue-on-error: true
+        run: trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --ignore-unfixed --skip-db-update --skip-check-update --skip-dirs samples --exit-code 1 .
+      - name: H. trivy image on the built image
+        continue-on-error: true
+        run: |
+          docker build -t relnotes .
+          trivy image --severity HIGH,CRITICAL --ignore-unfixed --skip-db-update --skip-check-update --exit-code 1 relnotes
+      - name: I. old flag name --skip-policy-update
+        continue-on-error: true
+        run: trivy config --skip-policy-update samples/worked/Dockerfile
+      - name: J. trivy version
+        run: trivy --version
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: shellcheck --version
+      - continue-on-error: true
+        run: shellcheck samples/worked/deploy.sh
+      - run: shellcheck scripts/*.sh

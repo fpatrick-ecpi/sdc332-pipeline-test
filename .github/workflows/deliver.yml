@@ -1,0 +1,88 @@
+name: deliver
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      note:
+        description: "A note the production job prints"
+        required: false
+        default: "hand start"
+permissions:
+  contents: read
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+  TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: Show tag facts
+        env:
+          EVENT: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_SHA: ${{ github.sha }}
+        run: |
+          echo "event=$EVENT tag=$TAG workflow_run.head_sha=$HEAD_SHA github.sha=$GH_SHA checkout=$(git rev-parse HEAD)"
+      - run: docker build -t "$IMAGE:$TAG" .
+      - name: Install Trivy (pinned)
+        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+        with:
+          version: v0.76.1
+      - name: Scan the built image (ungraded)
+        run: trivy image --severity HIGH,CRITICAL --ignore-unfixed --ignorefile .trivyignore --exit-code 0 "$IMAGE:$TAG"
+      - name: Push to GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "$IMAGE:$TAG"
+  staging:
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: Pull and run with APP_ENV=staging
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker run -d -p 8000:8000 -e APP_ENV=staging "$IMAGE:$TAG"
+      - run: ./scripts/smoke.sh
+  production:
+    needs: staging
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: Print the note
+        env:
+          NOTE: ${{ inputs.note }}
+        run: echo "note=$NOTE"
+      - name: Pull and run with APP_ENV=production
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker run -d -p 8000:8000 -e APP_ENV=production "$IMAGE:$TAG"
+      - run: ./scripts/smoke.sh

@@ -1,2 +1,4 @@
 # Course rule: an ID on the Standing Findings page may be ignored here,
 # with the date it was added and 1 comment line, through a pull request.
+# 2026-11-12 Standing Findings test: Flask session-cookie finding, ignore test only
+CVE-2023-30861

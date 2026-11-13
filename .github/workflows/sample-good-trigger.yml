@@ -1,0 +1,19 @@
+name: w4-sample-a
+on:
+  push:
+    branches: [w4-samples]
+permissions:
+  contents: read
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Run the image with APP_ENV=staging
+        run: docker run -d -p 8000:8000 -e APP_ENV=staging ghcr.io/${{ github.repository }}:712865eb9dc4266cf8c8d86cfdbb20fff471ccf5
+      - name: Smoke check (fault - wrong script path)
+        run: ./scripts/smoke-check.sh

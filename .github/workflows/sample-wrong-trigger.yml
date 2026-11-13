@@ -1,0 +1,12 @@
+name: w4-sample-b
+on:
+  push:
+    branches: [w4-sample]
+permissions:
+  contents: read
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - run: echo "this should never run"

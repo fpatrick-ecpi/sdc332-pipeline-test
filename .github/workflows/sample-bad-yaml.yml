@@ -1,0 +1,10 @@
+name: w4-sample-c
+on:
+  push:
+    branches: [w4-samples]
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+     environment: staging
+    steps:
+      - run: echo "indentation error above"

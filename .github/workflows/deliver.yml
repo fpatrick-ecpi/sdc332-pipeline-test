@@ -1,7 +1,7 @@
 name: deliver
 on:
   workflow_run:
-    workflows: [".github/workflows/ci.yml"]
+    workflows: [ci]
     types: [completed]
     branches: [main]
   workflow_dispatch:

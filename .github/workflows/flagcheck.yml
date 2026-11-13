@@ -29,6 +29,12 @@ jobs:
       - name: D2. trivy config on the worked folder
         continue-on-error: true
         run: trivy config --skip-check-update --exit-code 1 samples/worked/
+      - name: D3. trivy config on a single file path, check flag only
+        continue-on-error: true
+        run: trivy config --skip-check-update --exit-code 1 samples/worked/Dockerfile
+      - name: D4. trivy config on the folder, HIGH and CRITICAL only
+        continue-on-error: true
+        run: trivy config --skip-check-update --severity HIGH,CRITICAL --exit-code 1 samples/worked/
       - name: E. fs with a .trivyignore listing the found IDs
         continue-on-error: true
         run: |
